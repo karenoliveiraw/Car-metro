@@ -1,0 +1,193 @@
+package view;
+
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.EventQueue;
+import java.awt.Image;
+import java.awt.SystemColor;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.FileInputStream;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JTextField;
+import javax.swing.border.LineBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
+
+import model.DAO;
+
+public class Cadastro extends JDialog {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	private JTextField txtAluno;
+	private JLabel lblFoto;
+
+	/**
+	 * Criar um objeto público (global) para obter o fluxo de bytes (imagem)
+	 */
+	// FileInputStream -> classe modelo responsável por entrada de banco binários
+	private FileInputStream fis;
+
+	// criar uma variável global para armazenar o tamanho em bytes da imagem
+
+	private int tamanho;
+
+	/**
+	 * Launch the application.
+	 */
+	public static void main(String[] args) {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					Cadastro dialog = new Cadastro();
+					dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+					dialog.setVisible(true);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
+	/**
+	 * Create the dialog.
+	 */
+	public Cadastro() {
+		getContentPane().setBackground(SystemColor.menu);
+		setTitle("Carômetro - Cadastrar aluno(a)");
+		setResizable(false);
+		setModal(true);
+		setIconImage(Toolkit.getDefaultToolkit().getImage(Cadastro.class.getResource("/img/favicon.png")));
+		setBounds(100, 100, 414, 431);
+		getContentPane().setLayout(null);
+
+		JLabel lblNewLabel = new JLabel("Aluno(a)");
+		lblNewLabel.setBounds(33, 34, 56, 14);
+		getContentPane().add(lblNewLabel);
+
+		txtAluno = new JTextField();
+		txtAluno.setBounds(92, 31, 234, 20);
+		getContentPane().add(txtAluno);
+		txtAluno.setColumns(10);
+
+		JButton btnSelecionar = new JButton("Selecionar foto");
+		btnSelecionar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		btnSelecionar.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				selecionarFoto();
+			}
+		});
+		btnSelecionar.setBounds(33, 79, 125, 23);
+		getContentPane().add(btnSelecionar);
+
+		lblFoto = new JLabel("");
+		lblFoto.setBorder(new LineBorder(new Color(0, 0, 0)));
+		lblFoto.setAlignmentX(Component.CENTER_ALIGNMENT);
+		lblFoto.setBounds(33, 113, 256, 256);
+		getContentPane().add(lblFoto);
+
+		JButton btnSalvar = new JButton("");
+		btnSalvar.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				salvar();
+			}
+		});
+		btnSalvar.setToolTipText("Salvar");
+		btnSalvar.setIcon(new ImageIcon(Cadastro.class.getResource("/img/save.png")));
+		btnSalvar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		btnSalvar.setBounds(310, 305, 64, 64);
+		getContentPane().add(btnSalvar);
+
+	}// fim do construtor
+
+	DAO dao = new DAO();
+	/**
+	 * Método responsavel pela seleção da foto 
+	 */
+
+	private void selecionarFoto() {
+		// JFileChooser -> classe modelo que gera um explorador de arquivos
+		JFileChooser jfc = new JFileChooser();
+		// a linha abaixo modifica o título do explorador de arquivos
+		jfc.setDialogTitle("Selecionar arquivo");
+		// a linha abaixo cria um filtro para escolher determinados tipos de arquivo
+		jfc.setFileFilter(new FileNameExtensionFilter("Arquivo de imagens(*.PNG,*.JPG,*.JPEG", "png", "jpg", "jpeg"));
+		// showOpenDialog(this) -> abre o explorador de arquivos
+		// int resultado -> saber se o usuário selecionou um arquivo
+		int resultado = jfc.showOpenDialog(this);
+		// se o usuário escolher uma opção, setar a JLabel
+
+		if (resultado == JFileChooser.APPROVE_OPTION) {
+			// tratamento de exceção
+			try {
+				// a linha abaixo seleciona o arquivo
+				fis = new FileInputStream(jfc.getSelectedFile());
+				// a linha abaixar obtém o tamanho do arquivo
+				tamanho = (int) jfc.getSelectedFile().length();
+				// convertendo o arquivo e setando a largura e altura para preencher a jlabel
+				// SCALE.SMOOTH (melhor resolução possível)
+				Image foto = ImageIO.read(jfc.getSelectedFile()).getScaledInstance(lblFoto.getWidth(),
+						lblFoto.getHeight(), Image.SCALE_SMOOTH);
+				// setar a jlabel
+				lblFoto.setIcon(new ImageIcon(foto));
+				lblFoto.updateUI();
+			} catch (Exception e) {
+				System.out.println(e);
+			}
+		}
+	}
+	
+	/**
+	 * Método responsavel para salvar a foto no banco de dados
+	 */
+	private void salvar () {
+		
+		if (txtAluno.getText().isEmpty() ) {
+			JOptionPane.showMessageDialog(null, "Preencha o nome do(a) aluno(a)");	
+			txtAluno.requestFocus();
+		} else {
+			String insert = "insert into alunos (nome,foto) values (?,?)";
+			try {
+				Connection con = dao.conectar();
+				PreparedStatement pst = con.prepareStatement(insert);
+				pst.setString(1,txtAluno.getText());
+				//setar o banco de dados com a imagem
+				pst.setBlob(2, fis, tamanho);
+				int confirma = pst.executeUpdate();
+				if (confirma == 1) {
+					JOptionPane.showMessageDialog(null, "Aluno(a) cadastrado(a) com sucesso!");	
+					limpar();
+				} else {
+					JOptionPane.showMessageDialog(null, "Erro! Aluno(a) não cadastrado(a) ");
+					limpar();
+				}
+				//fechar a conexão
+				con.close();
+				
+			} catch (Exception e) {
+				System.out.println(e);
+			}
+			
+		}
+		
+	}
+	
+	private void limpar () {
+		txtAluno.setText(null);
+		lblFoto.setIcon(null);
+	}
+	
+}// fim do código
